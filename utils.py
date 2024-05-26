@@ -1,123 +1,52 @@
+import replicate
 import time
-import requests
-import nltk
-from nltk import  word_tokenize
-from nltk.corpus import wordnet
-from rake_nltk import Rake
+import logging
 
+# Initialize debounce variables
+last_call_time = 0
+debounce_interval = 2  # Set the debounce interval (in seconds) to your desired value
 
-nltk.download('punkt')
-nltk.download('wordnet')
+def debounce_replicate_run(llm, prompt, max_len, temperature, top_p, API_TOKEN,model_reference):
+    global last_call_time
+    print("last call time: ", last_call_time)
 
+    # Get the current time
+    current_time = time.time()
 
-# Debounce function to prevent rapid consecutive API calls
-def debounce(func):
-    last_called = 0
-    
-    def debounced(*args, **kwargs):
-        nonlocal last_called
-        
-        now = time.time()
-        if now - last_called < 0.5:  # Debounce interval: 0.5 seconds
-            return "Please wait before asking another question."
-        else:
-            last_called = now
-            return func(*args, **kwargs)
-    
-    return debounced
+    # Calculate the time elapsed since the last call
+    elapsed_time = current_time - last_call_time
 
-# Function for grammar correction
-def correct_grammar(prompt):
-       # Tokenize the prompt into words
-    words = word_tokenize(prompt)
+    # Check if the elapsed time is less than the debounce interval
+    if elapsed_time < debounce_interval:
+        print("Debouncing")
+        return "Hello! You are sending requests too fast. Please wait a few seconds before sending another request."
 
-    # Correct each word using WordNet's built-in synonyms
-    corrected_words = []
-    for word in words:
-        corrected_word = correct_word(word)
-        corrected_words.append(corrected_word)
+    # Update the last call time to the current time
+    last_call_time = time.time()
 
-    # Join the corrected words back into a sentence
-    corrected_sentence = ' '.join(corrected_words)
-
-    return corrected_sentence
-
-def correct_word(word):
-    # Check if the word is in WordNet
-    if wordnet.synsets(word):
-        return word  # Word is correct
-    else:
-        # Try to find a similar word from WordNet
-        synonyms = wordnet.synsets(word)
-        if synonyms:
-            return synonyms[0].lemmas()[0].name()  # Use the first synonym
-        else:
-            return word  # Unable to find a correction, return the original word
-
-# Function for content suggestion
-def suggest_content(prompt):
-     # Extract keywords from the prompt
-    r = Rake()
-    r.extract_keywords_from_text(prompt)
-    keywords = r.get_ranked_phrases()
-
-    # Generate content based on the extracted keywords
-    suggested_content = generate_content(keywords)
-
-    return suggested_content
-
-def generate_content(keywords):
-
-    # Placeholder implementation for generating content
-    query = ' '.join(keywords)
-
-    # Make a request to a hypothetical content API
-    response = requests.get(f"https://randomuser.me/api?query={query}")
-
-    if response.status_code == 200:
-        # Extract relevant content from the response
-        content = response.json().get('content', "No content found")
-    else:
-        content = "Error: Unable to retrieve content"
-
-    return content
-
-
-    # You can use the extracted keywords to search for relevant content,
-    
-    
- 
-# Function to call the Llama API with debounce logic
-@debounce
-def debounced_llama_call(prompt,pre_prompt, api_key, selected_model):
-    # Replace this with actual API call to Llama2 API
-      # Construct the API endpoint URL
-    endpoint = "https://llama2-api.example.com/endpoint"  # Replace with the actual API endpoint
-
-    # Construct the request payload
-    payload = {
-        "prompt": prompt,
-        "pre_prompt": pre_prompt,
-        "api_key": api_key,
-        "selected_model": selected_model
-    }
-
-    # Send POST request to the Llama2 API
     try:
-        response = requests.post(endpoint, json=payload)
-        if response.status_code == 200:
-            # Return the response text
-            return response.text
-        else:
-            # Handle error responses
-            return f"Error: {response.status_code}"
+        # Replace with the correct model reference
+        model_reference = model_reference
+        print("The API_TOKEN", API_TOKEN)
+
+        # Initialize a client object with API token
+        client = replicate.Client(api_token=API_TOKEN)
+
+        # Attempt to call the Replicate API
+        output = client.run(
+            model_reference,
+            input={"prompt": prompt + "Assistant: ", "max_length": max_len, "temperature": temperature, "top_p": top_p, "repetition_penalty": 1}
+        )
+        return output
+    except replicate.exceptions.ReplicateError as e:
+        # Handle specific Replicate errors
+        logging.error(f"ReplicateError: {e}")
+        logging.error(f"Title: {e.title}")
+        logging.error(f"Status Code: {e.status}")
+        logging.error(f"Detail: {e.detail}")
+        return f"ReplicateError: {e.title} - {e.detail}"
     except Exception as e:
-        # Handle request exceptions
-        return f"Error: {str(e)}"
-
-
-
-
-    
-
+        # Handle other exceptions
+        logging.exception("Error calling Replicate API:")
+        return "An error occurred while communicating with the LLaMA2 model. Please try again later."
 
