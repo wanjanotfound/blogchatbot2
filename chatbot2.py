@@ -86,7 +86,7 @@ def render_app():
 
      # Acknowledgment button
     if st.sidebar.button("Ack"):
-        st.write("[Go back to the blogging app](https://your-blogging-app-url.com)")
+        st.write("[Go back to the blogging app](https://bloggy-s8e5.onrender.com/)")
 
    
     # Display chat history
