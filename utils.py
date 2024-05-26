@@ -1,55 +1,123 @@
-import requests
-import os
-from dotenv import load_dotenv
-import threading
 import time
+import requests
+import nltk
+from nltk import  word_tokenize
+from nltk.corpus import wordnet
+from rake_nltk import Rake
 
-load_dotenv()
 
-LLAMA_API_KEY = os.getenv("LLAMA_API_KEY")
-PRE_PROMPT = os.getenv("PRE_PROMPT")
+nltk.download('punkt')
+nltk.download('wordnet')
 
-# Mutex for thread synchronization
-mutex = threading.Lock()
 
-# Time interval for debounce in milliseconds
-DEBOUNCE_INTERVAL = 1000
-
-# Last call time initialization
-last_call_time = 0
-
-def debounced_llama_call(prompt):
-    global last_call_time
+# Debounce function to prevent rapid consecutive API calls
+def debounce(func):
+    last_called = 0
     
-    # Acquire the mutex for thread safety
-    mutex.acquire()
+    def debounced(*args, **kwargs):
+        nonlocal last_called
+        
+        now = time.time()
+        if now - last_called < 0.5:  # Debounce interval: 0.5 seconds
+            return "Please wait before asking another question."
+        else:
+            last_called = now
+            return func(*args, **kwargs)
+    
+    return debounced
 
-    # Get the current time
-    current_time = time.time()
+# Function for grammar correction
+def correct_grammar(prompt):
+       # Tokenize the prompt into words
+    words = word_tokenize(prompt)
 
-    # Calculate the time difference between current and last call
-    time_diff = current_time - last_call_time
+    # Correct each word using WordNet's built-in synonyms
+    corrected_words = []
+    for word in words:
+        corrected_word = correct_word(word)
+        corrected_words.append(corrected_word)
 
-    # If the time difference is less than debounce interval, sleep for remaining time
-    if time_diff < DEBOUNCE_INTERVAL / 1000:
-        time.sleep((DEBOUNCE_INTERVAL / 1000) - time_diff)
+    # Join the corrected words back into a sentence
+    corrected_sentence = ' '.join(corrected_words)
 
-    # Update the last call time
-    last_call_time = time.time()
+    return corrected_sentence
 
-    # Release the mutex
-    mutex.release()
+def correct_word(word):
+    # Check if the word is in WordNet
+    if wordnet.synsets(word):
+        return word  # Word is correct
+    else:
+        # Try to find a similar word from WordNet
+        synonyms = wordnet.synsets(word)
+        if synonyms:
+            return synonyms[0].lemmas()[0].name()  # Use the first synonym
+        else:
+            return word  # Unable to find a correction, return the original word
 
-    # Make the API request
+# Function for content suggestion
+def suggest_content(prompt):
+     # Extract keywords from the prompt
+    r = Rake()
+    r.extract_keywords_from_text(prompt)
+    keywords = r.get_ranked_phrases()
+
+    # Generate content based on the extracted keywords
+    suggested_content = generate_content(keywords)
+
+    return suggested_content
+
+def generate_content(keywords):
+
+    # Placeholder implementation for generating content
+    query = ' '.join(keywords)
+
+    # Make a request to a hypothetical content API
+    response = requests.get(f"https://randomuser.me/api?query={query}")
+
+    if response.status_code == 200:
+        # Extract relevant content from the response
+        content = response.json().get('content', "No content found")
+    else:
+        content = "Error: Unable to retrieve content"
+
+    return content
+
+
+    # You can use the extracted keywords to search for relevant content,
+    
+    
+ 
+# Function to call the Llama API with debounce logic
+@debounce
+def debounced_llama_call(prompt,pre_prompt, api_key, selected_model):
+    # Replace this with actual API call to Llama2 API
+      # Construct the API endpoint URL
+    endpoint = "https://llama2-api.example.com/endpoint"  # Replace with the actual API endpoint
+
+    # Construct the request payload
     payload = {
-        "prompt": PRE_PROMPT + "\n" + prompt,
-        "temperature": 0.7,  # Adjust temperature as desired
-        "max_tokens": 150  # Adjust max tokens as desired
+        "prompt": prompt,
+        "pre_prompt": pre_prompt,
+        "api_key": api_key,
+        "selected_model": selected_model
     }
-    headers = {"Authorization": f"Bearer {LLAMA_API_KEY}"}
-    response = requests.post("https://api.llama.ai/v1/generate", json=payload, headers=headers)
-    response.raise_for_status()
-    return response.json()["choices"][0]["text"]
 
-# Example usage
-print(debounced_llama_call("Your prompt here"))
+    # Send POST request to the Llama2 API
+    try:
+        response = requests.post(endpoint, json=payload)
+        if response.status_code == 200:
+            # Return the response text
+            return response.text
+        else:
+            # Handle error responses
+            return f"Error: {response.status_code}"
+    except Exception as e:
+        # Handle request exceptions
+        return f"Error: {str(e)}"
+
+
+
+
+    
+
+

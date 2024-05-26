@@ -1,54 +1,48 @@
 import os
-import tkinter as tk  # Example UI library
-import requests  # For making API calls
-from utils import debounced_llama_call  # Your debounced function
 import streamlit as st
+from dotenv import load_dotenv
+from utils import debounced_llama_call, correct_grammar, suggest_content
 
-# Load the API key from the .env file
+# Load the API key and other secrets from the .env file
+load_dotenv()
 LLAMA_API_KEY = os.getenv("LLAMA_API_KEY")
-PRE_PROMPT = os.getenv("PRE_PROMPT")
+PRE_PROMPT = "You are a helpful personal assistant. You do not respond as 'User' or pretend to be 'User'. You only respond once as a personal Assistant."
 
 chat_history = []
 
 def create_chatbot_window():
-    window = tk.Tk()
-    window.title("Chatbot")
-  # Input field for user prompts
-    prompt_entry = tk.Entry(window, width=50)
-    prompt_entry.pack(padx=10, pady=10)
+    st.title("Chatbot")
+    
+    # Input field for user prompts
+    prompt = st.text_input("Ask something:", key="prompt")
 
-  # Button to trigger response generation
-    submit_button = tk.Button(window, text="Ask", command=lambda: get_llama_response(prompt_entry.get()))
-    submit_button.pack(padx=10, pady=10)
+    # Dropdown menu for selecting Llama model
+    selected_model = st.selectbox("Select Llama Model", ["Llama v1", "Llama v2"], index=0)
 
-  # Display area for chatbot responses and chat history
-    chat_display = tk.Text(window, height=20, width=80)
-    chat_display.pack()
+    # Button to trigger response generation
+    if st.button("Ask"):
+        corrected_prompt = correct_grammar(prompt)
+        response = debounced_llama_call(corrected_prompt, PRE_PROMPT, LLAMA_API_KEY, selected_model)
+        st.text(response)
+        
+        # Suggest content based on prompt
+        suggested_content = suggest_content(prompt)
+        st.text(f"Suggested content: {suggested_content}")
 
-  # Example dropdown menu using tkinter (modify for your UI framework)
-    def update_selected_model(model_name):
-        global selected_model  # Assuming a global variable for selected model
-        selected_model = model_name
-     # Update API endpoint or parameters based on the selected model
-    models = ["Llama v1", "Llama v2"]  # Replace with available models
-    selected_model = models[0]  # Initial selection
+    # Button for navigation to the blogging application
+    if st.button("Go to Blogging App"):
+        # Placeholder implementation for navigating to the blogging application
+        # Replace this with actual implementation
+        st.markdown("[Clikc here to Go to the blogging App](blogging App  url )")
 
-    model_dropdown = tk.OptionMenu(window, tk.StringVar(window, selected_model), *models, command=update_selected_model)
-    model_dropdown.pack(padx=10, pady=10)
+    # Display area for chatbot responses and chat history
+    st.subheader("Chat History")
+    for entry in chat_history:
+        st.text(f"{entry['prompt']}: {entry['response']}")
 
-    window.mainloop()
-
-def update_chat_display(prompt, response, chat_display):
+def update_chat_display(prompt, response):
     chat_history.append({"prompt": prompt, "response": response})
-    chat_display_text = "\n".join([f"{entry['prompt']}: {entry['response']}" for entry in chat_history])
-    chat_display.delete(1.0, tk.END)
-    chat_display.insert(tk.END, chat_display_text)
 
+if __name__ == "__main__":
+    create_chatbot_window()
 
-def get_llama_response(prompt):
-  # Replace with your actual debounced_llama_call function logic
-    response = debounced_llama_call(prompt, PRE_PROMPT, LLAMA_API_KEY)
-    update_chat_display(prompt, response)
-
-
-create_chatbot_window()
