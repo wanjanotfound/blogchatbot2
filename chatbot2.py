@@ -40,7 +40,7 @@ def render_app():
     st.session_state.setdefault('string_dialogue', '')
 
     # Set up left sidebar
-    st.sidebar.header("Blog Chatbot 💬")
+    st.sidebar.header("BloggyBG Chatbot 💬")
    
      #container for the chat history
     response_container = st.container()
@@ -85,7 +85,7 @@ def render_app():
     btn_col1, btn_col2 = st.sidebar.columns(2)
 
      # Acknowledgment button
-    if st.sidebar.button("Ack"):
+    if st.sidebar.button("Back to BloggyBG"):
         st.write("[Go back to the blogging app](https://bloggy-s8e5.onrender.com/)")
 
    
@@ -95,7 +95,7 @@ def render_app():
             st.markdown(message["content"])
 
     # User input
-    if prompt := st.chat_input("Ask a question here to LLaMA2"):
+    if prompt := st.chat_input("Lets chat"):
         st.session_state.chat_dialogue.append({"role": "user", "content": prompt})
         with st.chat_message("user"):
             st.markdown(prompt)
